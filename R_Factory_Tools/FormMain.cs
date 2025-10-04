@@ -5,6 +5,7 @@ using R_Factory_Tools.Models;
 using R_Factory_Tools.Repositories;
 using R_Factory_Tools.Utilities;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 namespace R_Factory_Tools
 {
@@ -16,9 +17,10 @@ namespace R_Factory_Tools
         private Task? _pollingTask;
 
         private List<Endpoints> _endpoints = [];
-        private List<TcpClient> _tcpClient;
-        private List<IModbusFactory> _modbusFactory;
-        private List<IModbusMaster> modbus_Poll;
+        private List<ModbusDetails> _modbusDetails = [];
+        private List<StartAddresses> _startAddresses = [];
+        private readonly ModbusFactory _factory = new();
+        private readonly Dictionary<Endpoints, (TcpClient client, IModbusMaster master)> _connections = [];
 
         public FormMain()
         {
@@ -49,6 +51,8 @@ namespace R_Factory_Tools
                         if (!IsDisposed && !ct.IsCancellationRequested)
                         {
                             BeginInvoke((Action)LoadTableData);
+                            CleanupStaleConnections();
+                            await PollModbusDevicesAsync();
                         }
 
                         DateTime? current = await FetchLatestTimestampAsync(ct).ConfigureAwait(false);
@@ -59,7 +63,14 @@ namespace R_Factory_Tools
 
                             if (!IsDisposed && !ct.IsCancellationRequested)
                             {
-                                BeginInvoke((Action)OnTableChanged);
+                                try
+                                {
+                                    BeginInvoke((Action)OnTableChanged);
+                                }
+                                catch (Exception ex)
+                                {
+                                    ErrorLogger.Write(ex);
+                                }
                             }
                         }
 
@@ -93,20 +104,9 @@ namespace R_Factory_Tools
         private async void OnTableChanged()
         {
             var repo = new GenericRepo();
-            var data = await repo.ProcedureToList<DeviceCommunicationParamConfigDTO>("spGetDeviceCommunicationParamConfig",
-                ["DeviceParamId"], [-1]);
-            _endpoints = [.. data
-            .GroupBy(x => x.DeviceParameterId)
-            .Select(g =>
-            {
-                var ipRow = g.First(d => d.ParamKey == "IP");
-                var portRow = g.First(d => d.ParamKey == "PORT");
-
-                if (!int.TryParse(portRow.ConfigValue, out var port))
-                    throw new InvalidOperationException($"Invalid port for DeviceParameterId={g.Key}");
-
-                return new Endpoints(ipRow.ConfigValue, port);
-            }).Distinct()];
+            (_endpoints, _modbusDetails, _startAddresses) =
+                await repo.ProcedureToList<Endpoints, ModbusDetails, StartAddresses>(
+                "spGetEnpoints", [], []);
         }
 
         private async void LoadTableData()
@@ -117,6 +117,91 @@ namespace R_Factory_Tools
                 q => q.OrderByDescending(l => l.Id),
                 take: 10);
             grvData.DataSource = data;
+        }
+
+        private void CleanupStaleConnections()
+        {
+            var keep = new HashSet<Endpoints>(_endpoints);
+            var toRemove = _connections.Keys
+                .Where(ep => !keep.Contains(ep))
+                .ToList();
+
+            foreach (var ep in toRemove)
+            {
+                var (client, master) = _connections[ep];
+                try { client.Close(); } catch { }
+                _connections.Remove(ep);
+            }
+        }
+
+        private async Task PollModbusDevicesAsync()
+        {
+            var endpointList = _endpoints.ToList();//clone
+
+            foreach (var enpoint in endpointList)
+            {
+                try
+                {
+                    if (!_connections.TryGetValue(enpoint, out var tuple))
+                    {
+                        var tcp = new TcpClient();
+                        await tcp.ConnectAsync(enpoint.IP, Convert.ToInt32(enpoint.Port));
+                        var master = _factory.CreateMaster(tcp);
+                        master.Transport.ReadTimeout = 1000;
+                        master.Transport.Retries = 1;
+
+                        tuple = (tcp, master);
+                        _connections[enpoint] = tuple;
+                    }
+
+                    var masterClient = tuple.master;
+                    string functionName = _modbusDetails[0].FunctionRead.Replace(" ", "").Trim().ToLower();
+                    byte unitId = Convert.ToByte(_modbusDetails[0].SlaveId);
+                    ushort first = ushort.Parse(_startAddresses.First().StartAddress);
+                    ushort last = ushort.Parse(_startAddresses.Last().StartAddress);
+                    _startAddresses = [.. _startAddresses.OrderBy(x => int.Parse(x.StartAddress))];
+                    for (int addr = first; addr <= last; addr++)
+                    {
+                        bool exists = _startAddresses.Any(x => int.Parse(x.StartAddress) == addr);
+                        if (!exists)
+                        {
+                            _startAddresses.Add(new StartAddresses(0, addr.ToString()));
+                        }
+                    }
+                    _startAddresses = [.. _startAddresses.OrderBy(x => int.Parse(x.StartAddress))];
+                    ushort numPoints = (ushort)Math.Max(0, last - first + 1);
+                    if (functionName.Contains("readcoils") ||
+                        Regex.IsMatch(functionName, @"1(?!x)|0x", RegexOptions.IgnoreCase))
+                    {
+                        var coils = masterClient.ReadCoils(unitId, first, numPoints);
+                    }
+                    else if (functionName.Contains("readinputs") ||
+                        Regex.IsMatch(functionName, @"2(?!x)|1x", RegexOptions.IgnoreCase))
+                    {
+                        var inputs = masterClient.ReadInputs(unitId, first, numPoints);
+                    }
+                    else if (functionName.Contains("readholdingregisters") ||
+                        Regex.IsMatch(functionName, @"3(?!x)|4x", RegexOptions.IgnoreCase))
+                    {
+                        var regs = masterClient.ReadHoldingRegisters(unitId, first, numPoints);
+                        Console.WriteLine($"[{enpoint.IP}:{enpoint.Port}] → {string.Join(", ", regs)}");
+                    }
+                    else if (functionName.Contains("readinputregisters") ||
+                        Regex.IsMatch(functionName, @"4(?!x)|3x", RegexOptions.IgnoreCase))
+                    {
+                        var inRegs = masterClient.ReadInputRegisters(unitId, first, numPoints);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorLogger.Write(ex);
+                    if (_connections.TryGetValue(enpoint, out var bad))
+                    {
+                        try { bad.client.Close(); } catch { }
+                        _connections.Remove(enpoint);
+                    }
+                }
+            }
         }
 
         private void btnStart_Click(object sender, EventArgs e)
@@ -137,5 +222,7 @@ namespace R_Factory_Tools
         }
     }
 
-    public record Endpoints(string IP, int Port);
+    public record Endpoints(string IP = "", string Port = "");
+    public record ModbusDetails(string SlaveId = "", string FunctionRead = "");
+    public record StartAddresses(int DeviceParameterId = 0, string StartAddress = "");
 }
