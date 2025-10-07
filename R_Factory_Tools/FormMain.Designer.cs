@@ -34,15 +34,14 @@
             menuNotify = new ContextMenuStrip(components);
             thoátToolStripMenuItem = new ToolStripMenuItem();
             panel1 = new Panel();
+            btnStop = new Button();
             btnStart = new Button();
             lblConnectionStatusValue = new Label();
-            btnHide = new Button();
             lblConnectionStatusText = new Label();
             panel2 = new Panel();
             grvData = new DataGridView();
-            colId = new DataGridViewTextBoxColumn();
+            colDeviceParameterId = new DataGridViewTextBoxColumn();
             colConfigValue = new DataGridViewTextBoxColumn();
-            btnStop = new Button();
             menuNotify.SuspendLayout();
             panel1.SuspendLayout();
             panel2.SuspendLayout();
@@ -73,13 +72,22 @@
             panel1.Controls.Add(btnStop);
             panel1.Controls.Add(btnStart);
             panel1.Controls.Add(lblConnectionStatusValue);
-            panel1.Controls.Add(btnHide);
             panel1.Controls.Add(lblConnectionStatusText);
             panel1.Dock = DockStyle.Top;
             panel1.Location = new Point(0, 0);
             panel1.Name = "panel1";
             panel1.Size = new Size(1287, 132);
             panel1.TabIndex = 1;
+            // 
+            // btnStop
+            // 
+            btnStop.Location = new Point(401, 49);
+            btnStop.Name = "btnStop";
+            btnStop.Size = new Size(75, 23);
+            btnStop.TabIndex = 4;
+            btnStop.Text = "Stop";
+            btnStop.UseVisualStyleBackColor = true;
+            btnStop.Click += btnStop_Click;
             // 
             // btnStart
             // 
@@ -103,17 +111,6 @@
             lblConnectionStatusValue.TabIndex = 2;
             lblConnectionStatusValue.Text = "Disconnected";
             // 
-            // btnHide
-            // 
-            btnHide.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnHide.Font = new Font("Segoe UI", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btnHide.Location = new Point(1181, 44);
-            btnHide.Name = "btnHide";
-            btnHide.Size = new Size(94, 42);
-            btnHide.TabIndex = 1;
-            btnHide.Text = "Ẩn";
-            btnHide.UseVisualStyleBackColor = true;
-            // 
             // lblConnectionStatusText
             // 
             lblConnectionStatusText.AutoSize = true;
@@ -136,19 +133,19 @@
             // grvData
             // 
             grvData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            grvData.Columns.AddRange(new DataGridViewColumn[] { colId, colConfigValue });
+            grvData.Columns.AddRange(new DataGridViewColumn[] { colDeviceParameterId, colConfigValue });
             grvData.Dock = DockStyle.Fill;
             grvData.Location = new Point(0, 0);
             grvData.Name = "grvData";
             grvData.Size = new Size(1287, 513);
             grvData.TabIndex = 0;
             // 
-            // colId
+            // colDeviceParameterId
             // 
-            colId.DataPropertyName = "Id";
-            colId.HeaderText = "Id";
-            colId.Name = "colId";
-            colId.Width = 500;
+            colDeviceParameterId.DataPropertyName = "DeviceParameterId";
+            colDeviceParameterId.HeaderText = "DeviceParameterId";
+            colDeviceParameterId.Name = "colDeviceParameterId";
+            colDeviceParameterId.Width = 500;
             // 
             // colConfigValue
             // 
@@ -156,16 +153,6 @@
             colConfigValue.HeaderText = "LogValue";
             colConfigValue.Name = "colConfigValue";
             colConfigValue.Width = 500;
-            // 
-            // btnStop
-            // 
-            btnStop.Location = new Point(401, 49);
-            btnStop.Name = "btnStop";
-            btnStop.Size = new Size(75, 23);
-            btnStop.TabIndex = 4;
-            btnStop.Text = "Stop";
-            btnStop.UseVisualStyleBackColor = true;
-            btnStop.Click += btnStop_Click;
             // 
             // FormMain
             // 
@@ -195,11 +182,10 @@
         private Panel panel2;
         private DataGridView grvData;
         private Label lblConnectionStatusText;
-        private Button btnHide;
         private Label lblConnectionStatusValue;
         private Button btnStart;
-        private DataGridViewTextBoxColumn colId;
-        private DataGridViewTextBoxColumn colConfigValue;
         private Button btnStop;
+        private DataGridViewTextBoxColumn colDeviceParameterId;
+        private DataGridViewTextBoxColumn colConfigValue;
     }
 }
