@@ -1,86 +1,86 @@
 ﻿{
-   "CodeGenerationMode": 4,
-   "ContextClassName": "r_factoryContext",
-   "ContextNamespace": null,
-   "FilterSchemas": false,
-   "IncludeConnectionString": false,
-   "MinimumProductVersion": "2.6.0",
-   "ModelNamespace": null,
-   "OutputContextPath": "Models\/Context",
-   "OutputPath": "Models",
-   "PreserveCasingWithRegex": true,
-   "ProjectRootNamespace": "R_Factory_Tools",
-   "Schemas": null,
-   "SelectedHandlebarsLanguage": 2,
-   "SelectedToBeGenerated": 0,
-   "T4TemplatePath": null,
-   "Tables": [
-      {
-         "Name": "areas",
-         "ObjectType": 0
-      },
-      {
-         "Name": "audit_log",
-         "ObjectType": 0
-      },
-      {
-         "Name": "communication",
-         "ObjectType": 0
-      },
-      {
-         "Name": "communication_param",
-         "ObjectType": 0
-      },
-      {
-         "Name": "device_communication_param_config",
-         "ObjectType": 0
-      },
-      {
-         "Name": "device_parameter_logs",
-         "ObjectType": 0
-      },
-      {
-         "Name": "device_parameters",
-         "ObjectType": 0
-      },
-      {
-         "Name": "devices",
-         "ObjectType": 0
-      },
-      {
-         "Name": "refresh_tokens",
-         "ObjectType": 0
-      },
-      {
-         "Name": "users",
-         "ObjectType": 0
-      }
-   ],
-   "UiHint": null,
-   "UncountableWords": null,
-   "UseAsyncStoredProcedureCalls": true,
-   "UseBoolPropertiesWithoutDefaultSql": false,
-   "UseDatabaseNames": false,
-   "UseDatabaseNamesForRoutines": true,
-   "UseDateOnlyTimeOnly": true,
-   "UseDbContextSplitting": false,
-   "UseDecimalDataAnnotationForSprocResult": true,
-   "UseFluentApiOnly": true,
-   "UseHandleBars": false,
-   "UseHierarchyId": false,
-   "UseInflector": false,
-   "UseInternalAccessModifiersForSprocsAndFunctions": false,
-   "UseLegacyPluralizer": false,
-   "UseManyToManyEntity": false,
-   "UseNoDefaultConstructor": false,
-   "UseNoNavigations": false,
-   "UseNoObjectFilter": false,
-   "UseNodaTime": false,
-   "UseNullableReferences": false,
-   "UsePrefixNavigationNaming": false,
-   "UseSchemaFolders": false,
-   "UseSchemaNamespaces": false,
-   "UseSpatial": false,
-   "UseT4": false,
-   "UseT4Split": false
+  "CodeGenerationMode": 4,
+  "ContextClassName": "r_factoryContext",
+  "ContextNamespace": null,
+  "FilterSchemas": false,
+  "IncludeConnectionString": false,
+  "MinimumProductVersion": "2.6.0",
+  "ModelNamespace": null,
+  "OutputContextPath": "Models\/Context",
+  "OutputPath": "Models",
+  "PreserveCasingWithRegex": true,
+  "ProjectRootNamespace": "R_Factory_Tools",
+  "Schemas": null,
+  "SelectedHandlebarsLanguage": 2,
+  "SelectedToBeGenerated": 0,
+  "T4TemplatePath": null,
+  "Tables": [
+    {
+      "Name": "areas",
+      "ObjectType": 0
+    },
+    {
+      "Name": "audit_log",
+      "ObjectType": 0
+    },
+    {
+      "Name": "communication",
+      "ObjectType": 0
+    },
+    {
+      "Name": "communication_param",
+      "ObjectType": 0
+    },
+    {
+      "Name": "device_communication_param_config",
+      "ObjectType": 0
+    },
+    {
+      "Name": "device_parameter_logs",
+      "ObjectType": 0
+    },
+    {
+      "Name": "device_parameters",
+      "ObjectType": 0
+    },
+    {
+      "Name": "devices",
+      "ObjectType": 0
+    },
+    {
+      "Name": "refresh_tokens",
+      "ObjectType": 0
+    },
+    {
+      "Name": "users",
+      "ObjectType": 0
+    }
+  ],
+  "UiHint": null,
+  "UncountableWords": null,
+  "UseAsyncStoredProcedureCalls": true,
+  "UseBoolPropertiesWithoutDefaultSql": false,
+  "UseDatabaseNames": false,
+  "UseDatabaseNamesForRoutines": true,
+  "UseDateOnlyTimeOnly": true,
+  "UseDbContextSplitting": false,
+  "UseDecimalDataAnnotationForSprocResult": true,
+  "UseFluentApiOnly": true,
+  "UseHandleBars": false,
+  "UseHierarchyId": false,
+  "UseInflector": false,
+  "UseInternalAccessModifiersForSprocsAndFunctions": false,
+  "UseLegacyPluralizer": false,
+  "UseManyToManyEntity": false,
+  "UseNoDefaultConstructor": false,
+  "UseNoNavigations": false,
+  "UseNoObjectFilter": false,
+  "UseNodaTime": false,
+  "UseNullableReferences": false,
+  "UsePrefixNavigationNaming": false,
+  "UseSchemaFolders": false,
+  "UseSchemaNamespaces": false,
+  "UseSpatial": false,
+  "UseT4": false,
+  "UseT4Split": false
 }

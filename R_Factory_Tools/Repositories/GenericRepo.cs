@@ -121,7 +121,6 @@ public class GenericRepo : IGenericRepo
         return await query.ToListAsync();
     }
 
-
     public async Task<T?> FindModel<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         var entity = await _context.Set<T>()

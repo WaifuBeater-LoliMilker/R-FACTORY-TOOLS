@@ -32,8 +32,9 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
             notifyIcon = new NotifyIcon(components);
             menuNotify = new ContextMenuStrip(components);
-            thoátToolStripMenuItem = new ToolStripMenuItem();
+            btnExit = new ToolStripMenuItem();
             panel1 = new Panel();
+            btnHide = new Button();
             btnStop = new Button();
             btnStart = new Button();
             lblConnectionStatusValue = new Label();
@@ -53,22 +54,24 @@
             notifyIcon.ContextMenuStrip = menuNotify;
             notifyIcon.Icon = (Icon)resources.GetObject("notifyIcon.Icon");
             notifyIcon.Text = "RTC";
-            notifyIcon.Visible = true;
+            notifyIcon.Click += notifyIcon_Click;
             // 
             // menuNotify
             // 
-            menuNotify.Items.AddRange(new ToolStripItem[] { thoátToolStripMenuItem });
+            menuNotify.Items.AddRange(new ToolStripItem[] { btnExit });
             menuNotify.Name = "menuNotify";
-            menuNotify.Size = new Size(105, 26);
+            menuNotify.Size = new Size(181, 48);
             // 
-            // thoátToolStripMenuItem
+            // btnExit
             // 
-            thoátToolStripMenuItem.Name = "thoátToolStripMenuItem";
-            thoátToolStripMenuItem.Size = new Size(104, 22);
-            thoátToolStripMenuItem.Text = "Thoát";
+            btnExit.Name = "btnExit";
+            btnExit.Size = new Size(180, 22);
+            btnExit.Text = "Thoát";
+            btnExit.Click += btnExit_Click;
             // 
             // panel1
             // 
+            panel1.Controls.Add(btnHide);
             panel1.Controls.Add(btnStop);
             panel1.Controls.Add(btnStart);
             panel1.Controls.Add(lblConnectionStatusValue);
@@ -78,6 +81,16 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(1287, 132);
             panel1.TabIndex = 1;
+            // 
+            // btnHide
+            // 
+            btnHide.Location = new Point(1112, 49);
+            btnHide.Name = "btnHide";
+            btnHide.Size = new Size(148, 23);
+            btnHide.TabIndex = 5;
+            btnHide.Text = "Ẩn xuống taskbar";
+            btnHide.UseVisualStyleBackColor = true;
+            btnHide.Click += btnHide_Click;
             // 
             // btnStop
             // 
@@ -177,7 +190,7 @@
 
         private NotifyIcon notifyIcon;
         private ContextMenuStrip menuNotify;
-        private ToolStripMenuItem thoátToolStripMenuItem;
+        private ToolStripMenuItem btnExit;
         private Panel panel1;
         private Panel panel2;
         private DataGridView grvData;
@@ -187,5 +200,6 @@
         private Button btnStop;
         private DataGridViewTextBoxColumn colDeviceParameterId;
         private DataGridViewTextBoxColumn colConfigValue;
+        private Button btnHide;
     }
 }

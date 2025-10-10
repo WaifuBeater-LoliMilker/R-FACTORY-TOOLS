@@ -1,12 +1,9 @@
-﻿using Microsoft.Extensions.Configuration;
-using MySqlConnector;
+﻿using MySqlConnector;
 using NModbus;
-using R_Factory_Tools.DTO;
 using R_Factory_Tools.Models;
 using R_Factory_Tools.Repositories;
 using R_Factory_Tools.Utilities;
 using System.Net.Sockets;
-using System.Security.Policy;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -222,6 +219,7 @@ namespace R_Factory_Tools
                 }
             }
         }
+
         private async Task SendDataToDB(ushort[] values)
         {
             var json = File.ReadAllText(Path.Combine(
@@ -282,6 +280,34 @@ namespace R_Factory_Tools
             }
             lblConnectionStatusValue.Text = "Disconnected";
             lblConnectionStatusValue.BackColor = Color.OrangeRed;
+        }
+
+        private void btnHide_Click(object sender, EventArgs e)
+        {
+            this.Hide();
+            notifyIcon.Visible = true;
+        }
+
+        private void notifyIcon_Click(object sender, EventArgs e)
+        {
+            if (((MouseEventArgs)e).Button == MouseButtons.Left)
+            {
+                this.Show();
+                notifyIcon.Visible = false;
+            }
+        }
+
+        private void btnExit_Click(object sender, EventArgs e)
+        {
+            notifyIcon.Visible = false;
+            if (Application.MessageLoop)
+            {
+                Application.Exit();
+            }
+            else
+            {
+                Environment.Exit(1);
+            }
         }
     }
 

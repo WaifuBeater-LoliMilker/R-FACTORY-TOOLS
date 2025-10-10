@@ -5,8 +5,9 @@ namespace R_Factory_Tools
     internal static class Program
     {
         private static readonly Mutex mutex = new(true, "RFactoryTools");
+
         [STAThread]
-        static void Main()
+        private static void Main()
         {
             if (mutex.WaitOne(TimeSpan.Zero, true))
             {
@@ -22,6 +23,7 @@ namespace R_Factory_Tools
                 Environment.Exit(0);
             }
         }
+
         private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
         {
             MessageBox.Show($"Đã có lỗi xảy ra: {e.Exception.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
