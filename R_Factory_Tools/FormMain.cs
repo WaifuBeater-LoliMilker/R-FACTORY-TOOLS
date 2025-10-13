@@ -103,15 +103,19 @@ namespace R_Factory_Tools
 
         private async Task<DateTime?> FetchLatestTimestampAsync(CancellationToken ct)
         {
-            await using var conn = new MySqlConnection(ConnectionStringProvider.Default);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText =
-                "SELECT last_modified FROM audit_log where table_name = 'device_communication_param_config';";
-
-            var result = await cmd.ExecuteScalarAsync(ct);
-            return result == DBNull.Value ? null : (DateTime?)result;
+            var json = File.ReadAllText(Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "appsettings.json"));
+            using var doc = JsonDocument.Parse(json);
+            var changeAPI = doc.RootElement
+                .GetProperty("ChangeAPI")
+                .GetString()
+                ?? throw new InvalidOperationException("ChangeAPI not found");
+            HttpResponseMessage response = await _httpClient.GetAsync(changeAPI, ct);
+            response.EnsureSuccessStatusCode();
+            string result = await response.Content.ReadAsStringAsync(ct);
+            DateTime date = JsonSerializer.Deserialize<DateTime>(result);
+            return date;
         }
 
         private async void OnTableChanged()
@@ -231,9 +235,9 @@ namespace R_Factory_Tools
                 .GetString()
                 ?? throw new InvalidOperationException("Secret not found");
             var backendAPI = doc.RootElement
-                .GetProperty("BackendAPI")
+                .GetProperty("LogAPI")
                 .GetString()
-                ?? throw new InvalidOperationException("BackendAPI not found");
+                ?? throw new InvalidOperationException("LogAPI not found");
             var data = new List<DeviceParameterLogs>();
             var currentTime = DateTime.Now;
             for (int i = 0; i < values.Length; i++)
