@@ -1,9 +1,6 @@
-﻿using MySqlConnector;
-using NModbus;
+﻿using HslCommunication.ModBus;
 using R_Factory_Tools.Models;
-using R_Factory_Tools.Repositories;
 using R_Factory_Tools.Utilities;
-using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -21,20 +18,18 @@ namespace R_Factory_Tools
         private List<Endpoints> _endpoints = [];
         private List<ModbusDetails> _modbusDetails = [];
         private List<StartAddresses> _startAddresses = [];
-        private readonly ModbusFactory _factory = new();
-        private readonly Dictionary<Endpoints, (TcpClient client, IModbusMaster master)> _connections = [];
+
+        private readonly Dictionary<Endpoints, ModbusTcpNet> _connections = [];
 
         public FormMain()
         {
             InitializeComponent();
             _lastModified = null;
             _pollCts = new CancellationTokenSource();
-            grvData.AutoGenerateColumns = false;
         }
 
         private void FormMain_Load(object sender, EventArgs e)
         {
-            LoadTableData();
         }
 
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
@@ -53,7 +48,6 @@ namespace R_Factory_Tools
                     {
                         if (!IsDisposed && !ct.IsCancellationRequested)
                         {
-                            BeginInvoke((Action)LoadTableData);
                             CleanupStaleConnections();
                             await PollModbusDevicesAsync();
                         }
@@ -120,13 +114,23 @@ namespace R_Factory_Tools
 
         private async void OnTableChanged()
         {
-            var repo = new GenericRepo();
-            (_endpoints, _modbusDetails, _startAddresses) =
-                await repo.ProcedureToList<Endpoints, ModbusDetails, StartAddresses>(
-                "spGetEnpoints", [], []);
+            var json = File.ReadAllText(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "appsettings.json"));
+            using var doc = JsonDocument.Parse(json);
+            var endpointsAPI = doc.RootElement
+                .GetProperty("EndPointsAPI")
+                .GetString()
+                ?? throw new InvalidOperationException("ChangeAPI not found");
+            HttpResponseMessage response = await _httpClient.GetAsync(endpointsAPI);
+            response.EnsureSuccessStatusCode();
+            string result = await response.Content.ReadAsStringAsync();
+            (_endpoints, _modbusDetails, _startAddresses) = JsonSerializer.Deserialize<
+                Tuple<List<Endpoints>, List<ModbusDetails>, List<StartAddresses>>>(result)!;
             ushort first = ushort.Parse(_startAddresses.First().StartAddress);
             ushort last = ushort.Parse(_startAddresses.Last().StartAddress);
-            _startAddresses = [.. _startAddresses.OrderBy(x => int.Parse(x.StartAddress))];
+            _startAddresses = _startAddresses.OrderBy(x => int.Parse(x.StartAddress)).ToList();
+
             for (int addr = first; addr <= last; addr++)
             {
                 bool exists = _startAddresses.Any(x => int.Parse(x.StartAddress) == addr);
@@ -135,17 +139,7 @@ namespace R_Factory_Tools
                     _startAddresses.Add(new StartAddresses(0, addr.ToString()));
                 }
             }
-            _startAddresses = [.. _startAddresses.OrderBy(x => int.Parse(x.StartAddress))];
-        }
-
-        private async void LoadTableData()
-        {
-            var repo = new GenericRepo();
-            var data = await repo.FindByExpression<DeviceParameterLogs>(
-                l => true,
-                q => q.OrderByDescending(l => l.Id),
-                take: 10);
-            grvData.DataSource = data;
+            _startAddresses = _startAddresses.OrderBy(x => int.Parse(x.StartAddress)).ToList();
         }
 
         private void CleanupStaleConnections()
@@ -157,59 +151,121 @@ namespace R_Factory_Tools
 
             foreach (var ep in toRemove)
             {
-                var (client, master) = _connections[ep];
-                try { client.Close(); } catch { }
+                try
+                {
+                    var modbus = _connections[ep];
+                    try { modbus.ConnectClose(); } catch { }
+                }
+                catch { }
                 _connections.Remove(ep);
             }
         }
 
         private async Task PollModbusDevicesAsync()
         {
-            var endpointList = _endpoints.ToList();//clone
+            var endpointList = _endpoints.ToList(); // clone
 
             foreach (var enpoint in endpointList)
             {
                 try
                 {
-                    if (!_connections.TryGetValue(enpoint, out var tuple))
+                    if (!_connections.TryGetValue(enpoint, out var modbus))
                     {
-                        var tcp = new TcpClient();
-                        await tcp.ConnectAsync(enpoint.IP, Convert.ToInt32(enpoint.Port));
-                        var master = _factory.CreateMaster(tcp);
-                        master.Transport.ReadTimeout = 1000;
-                        master.Transport.Retries = 1;
-
-                        tuple = (tcp, master);
-                        _connections[enpoint] = tuple;
+                        modbus = new ModbusTcpNet(enpoint.IP, Convert.ToInt32(enpoint.Port));
+                        modbus.ReceiveTimeOut = 1000;
+                        var connect = modbus.ConnectServer();
+                        if (!connect.IsSuccess)
+                        {
+                            throw new InvalidOperationException($"Failed to connect to {enpoint.IP}:{enpoint.Port} - {connect.Message}");
+                        }
+                        _connections[enpoint] = modbus;
                     }
 
-                    var masterClient = tuple.master;
+                    if (_modbusDetails == null || _modbusDetails.Count == 0 || _startAddresses == null || _startAddresses.Count == 0)
+                        continue;
+
                     string functionName = _modbusDetails[0].FunctionRead.Replace(" ", "").Trim().ToLower();
                     byte unitId = Convert.ToByte(_modbusDetails[0].SlaveId);
+
+                    modbus.Station = unitId;
+
                     ushort first = ushort.Parse(_startAddresses.First().StartAddress);
                     ushort last = ushort.Parse(_startAddresses.Last().StartAddress);
                     ushort numPoints = (ushort)Math.Max(0, last - first + 1);
+
+                    if (numPoints == 0)
+                        continue;
+
                     if (functionName.Contains("readcoils") ||
                         Regex.IsMatch(functionName, @"1(?!x)|0x", RegexOptions.IgnoreCase))
                     {
-                        var coils = masterClient.ReadCoils(unitId, first, numPoints);
+                        // Read coils (bit table, function 1)
+                        // Hsl: ReadBool(address, length) returns OperateResult<bool[]>
+                        var res = modbus.ReadBool(first.ToString(), numPoints);
+                        if (res.IsSuccess)
+                        {
+                            bool[] coils = res.Content;
+                            // TODO: use coils as needed (not saved to DB in your original code)
+                        }
+                        else
+                        {
+                            ErrorLogger.Write(new Exception($"Read coils failed: {res.Message}"));
+                        }
                     }
                     else if (functionName.Contains("readinputs") ||
                         Regex.IsMatch(functionName, @"2(?!x)|1x", RegexOptions.IgnoreCase))
                     {
-                        var inputs = masterClient.ReadInputs(unitId, first, numPoints);
+                        // Read discrete inputs (function 2). Hsl uses address prefix "x=2;" for discrete inputs in some examples,
+                        // but since we set Station above you can also try ReadBool with an "x=2;" prefix:
+                        var addrPrefix = $"x=2;{first}";
+                        var res = modbus.ReadBool(addrPrefix, numPoints);
+                        if (res.IsSuccess)
+                        {
+                            bool[] inputs = res.Content;
+                            // TODO: use inputs as needed
+                        }
+                        else
+                        {
+                            ErrorLogger.Write(new Exception($"Read discrete inputs failed: {res.Message}"));
+                        }
                     }
                     else if (functionName.Contains("readholdingregisters") ||
                         Regex.IsMatch(functionName, @"3(?!x)|4x", RegexOptions.IgnoreCase))
                     {
-                        var regs = masterClient.ReadHoldingRegisters(unitId, first, numPoints);
-                        await SendDataToDB(regs);
-                        Console.WriteLine($"[{enpoint.IP}:{enpoint.Port}] → {string.Join(", ", regs)}");
+                        // Read holding registers (function 3)
+                        // Use Read(address, length) to get raw bytes (each register is 2 bytes)
+                        var res = modbus.ReadUInt16(first.ToString(), numPoints);
+                        if (!res.IsSuccess)
+                        {
+                            ErrorLogger.Write(new Exception($"ReadHoldingRegisters failed: {res.Message}"));
+                        }
+                        else
+                        {
+                            // send to DB (your existing method expects ushort[])
+                            await SendDataToDB(res.Content);
+                        }
                     }
                     else if (functionName.Contains("readinputregisters") ||
                         Regex.IsMatch(functionName, @"4(?!x)|3x", RegexOptions.IgnoreCase))
                     {
-                        var inRegs = masterClient.ReadInputRegisters(unitId, first, numPoints);
+                        // Read input registers (function 4).
+                        // Hsl examples sometimes use "x=4;100" to indicate input register table
+                        var addrPrefix = $"x=4;{first}";
+                        var res = modbus.Read(addrPrefix, numPoints);
+                        if (res.IsSuccess)
+                        {
+                            byte[] bytes = res.Content;
+                            ushort[] inRegs = new ushort[numPoints];
+                            for (int i = 0; i < numPoints; i++)
+                            {
+                                int baseIndex = i * 2;
+                                inRegs[i] = (ushort)((bytes[baseIndex] << 8) | bytes[baseIndex + 1]);
+                            }
+                        }
+                        else
+                        {
+                            ErrorLogger.Write(new Exception($"ReadInputRegisters failed: {res.Message}"));
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -217,7 +273,7 @@ namespace R_Factory_Tools
                     ErrorLogger.Write(ex);
                     if (_connections.TryGetValue(enpoint, out var bad))
                     {
-                        try { bad.client.Close(); } catch { }
+                        try { bad.ConnectClose(); } catch { }
                         _connections.Remove(enpoint);
                     }
                 }
@@ -255,11 +311,6 @@ namespace R_Factory_Tools
                     SecondValue = currentTime.Second
                 });
             }
-            grvData.BeginInvoke(() =>
-            {
-                var newSource = data.Where(d => d.DeviceParameterId != 0).ToList();
-                grvData.DataSource = newSource;
-            });
             string jsonData = JsonSerializer.Serialize(new { data, secret });
             using var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await _httpClient.PostAsync(backendAPI, content);
@@ -313,6 +364,13 @@ namespace R_Factory_Tools
                 Environment.Exit(1);
             }
         }
+    }
+
+    internal class EndPointsDTO
+    {
+        public List<Endpoints> Item1 { get; set; }
+        public List<ModbusDetails> Item2 { get; set; }
+        public List<StartAddresses> Item3 { get; set; }
     }
 
     public record Endpoints(string IP = "", string Port = "");

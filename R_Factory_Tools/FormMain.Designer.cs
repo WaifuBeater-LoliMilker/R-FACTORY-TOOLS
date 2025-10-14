@@ -39,14 +39,8 @@
             btnStart = new Button();
             lblConnectionStatusValue = new Label();
             lblConnectionStatusText = new Label();
-            panel2 = new Panel();
-            grvData = new DataGridView();
-            colDeviceParameterId = new DataGridViewTextBoxColumn();
-            colConfigValue = new DataGridViewTextBoxColumn();
             menuNotify.SuspendLayout();
             panel1.SuspendLayout();
-            panel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)grvData).BeginInit();
             SuspendLayout();
             // 
             // notifyIcon
@@ -60,12 +54,12 @@
             // 
             menuNotify.Items.AddRange(new ToolStripItem[] { btnExit });
             menuNotify.Name = "menuNotify";
-            menuNotify.Size = new Size(181, 48);
+            menuNotify.Size = new Size(105, 26);
             // 
             // btnExit
             // 
             btnExit.Name = "btnExit";
-            btnExit.Size = new Size(180, 22);
+            btnExit.Size = new Size(104, 22);
             btnExit.Text = "Thoát";
             btnExit.Click += btnExit_Click;
             // 
@@ -76,15 +70,16 @@
             panel1.Controls.Add(btnStart);
             panel1.Controls.Add(lblConnectionStatusValue);
             panel1.Controls.Add(lblConnectionStatusText);
-            panel1.Dock = DockStyle.Top;
+            panel1.Dock = DockStyle.Fill;
             panel1.Location = new Point(0, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1287, 132);
+            panel1.Size = new Size(661, 122);
             panel1.TabIndex = 1;
             // 
             // btnHide
             // 
-            btnHide.Location = new Point(1112, 49);
+            btnHide.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnHide.Location = new Point(496, 49);
             btnHide.Name = "btnHide";
             btnHide.Size = new Size(148, 23);
             btnHide.TabIndex = 5;
@@ -134,45 +129,11 @@
             lblConnectionStatusText.TabIndex = 0;
             lblConnectionStatusText.Text = "Trạng thái:";
             // 
-            // panel2
-            // 
-            panel2.Controls.Add(grvData);
-            panel2.Dock = DockStyle.Fill;
-            panel2.Location = new Point(0, 132);
-            panel2.Name = "panel2";
-            panel2.Size = new Size(1287, 513);
-            panel2.TabIndex = 2;
-            // 
-            // grvData
-            // 
-            grvData.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            grvData.Columns.AddRange(new DataGridViewColumn[] { colDeviceParameterId, colConfigValue });
-            grvData.Dock = DockStyle.Fill;
-            grvData.Location = new Point(0, 0);
-            grvData.Name = "grvData";
-            grvData.Size = new Size(1287, 513);
-            grvData.TabIndex = 0;
-            // 
-            // colDeviceParameterId
-            // 
-            colDeviceParameterId.DataPropertyName = "DeviceParameterId";
-            colDeviceParameterId.HeaderText = "DeviceParameterId";
-            colDeviceParameterId.Name = "colDeviceParameterId";
-            colDeviceParameterId.Width = 500;
-            // 
-            // colConfigValue
-            // 
-            colConfigValue.DataPropertyName = "LogValue";
-            colConfigValue.HeaderText = "LogValue";
-            colConfigValue.Name = "colConfigValue";
-            colConfigValue.Width = 500;
-            // 
             // FormMain
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1287, 645);
-            Controls.Add(panel2);
+            ClientSize = new Size(661, 122);
             Controls.Add(panel1);
             Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "FormMain";
@@ -181,8 +142,6 @@
             menuNotify.ResumeLayout(false);
             panel1.ResumeLayout(false);
             panel1.PerformLayout();
-            panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)grvData).EndInit();
             ResumeLayout(false);
         }
 
@@ -192,14 +151,10 @@
         private ContextMenuStrip menuNotify;
         private ToolStripMenuItem btnExit;
         private Panel panel1;
-        private Panel panel2;
-        private DataGridView grvData;
         private Label lblConnectionStatusText;
         private Label lblConnectionStatusValue;
         private Button btnStart;
         private Button btnStop;
-        private DataGridViewTextBoxColumn colDeviceParameterId;
-        private DataGridViewTextBoxColumn colConfigValue;
         private Button btnHide;
     }
 }
