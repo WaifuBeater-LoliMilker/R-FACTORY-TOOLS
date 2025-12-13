@@ -71,7 +71,7 @@ public partial class r_factoryContext : DbContext
 
             entity.ToTable("communication");
 
-            entity.HasIndex(e => e.CommunicationName, "CommunicationName").IsUnique();
+            entity.HasIndex(e => e.CommunicationName, "idex_name");
 
             entity.Property(e => e.CommunicationName)
                 .IsRequired()
@@ -116,9 +116,22 @@ public partial class r_factoryContext : DbContext
 
             entity.ToTable("device_parameter_logs");
 
+            entity.HasIndex(e => e.DeviceParameterId, "idx_dpl_param");
+
+            entity.HasIndex(e => new { e.DeviceParameterId, e.LogTime, e.LogValue }, "idx_dpl_param_time_val");
+
+            entity.HasIndex(e => new { e.DeviceParameterId, e.YearValue, e.MonthValue, e.LogValue }, "idx_dpl_param_ym_val");
+
+            entity.Property(e => e.DayValue).HasComputedColumnSql("dayofmonth(`LogTime`)", true);
+            entity.Property(e => e.HourValue).HasComputedColumnSql("hour(`LogTime`)", true);
+            entity.Property(e => e.LogTime).HasColumnType("datetime");
             entity.Property(e => e.LogValue)
                 .IsRequired()
                 .HasMaxLength(100);
+            entity.Property(e => e.MinuteValue).HasComputedColumnSql("minute(`LogTime`)", true);
+            entity.Property(e => e.MonthValue).HasComputedColumnSql("month(`LogTime`)", true);
+            entity.Property(e => e.SecondValue).HasComputedColumnSql("second(`LogTime`)", true);
+            entity.Property(e => e.YearValue).HasComputedColumnSql("year(`LogTime`)", true);
         });
 
         modelBuilder.Entity<DeviceParameters>(entity =>
@@ -126,6 +139,8 @@ public partial class r_factoryContext : DbContext
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
             entity.ToTable("device_parameters");
+
+            entity.HasIndex(e => e.ParamName, "idx_name");
 
             entity.Property(e => e.IsActive).HasDefaultValueSql("'1'");
             entity.Property(e => e.ParamName)

@@ -13,15 +13,17 @@ public partial class DeviceParameterLogs
 
     public string LogValue { get; set; }
 
-    public int? YearValue { get; set; }
+    public DateTime LogTime { get; set; }
 
-    public int? MonthValue { get; set; }
+    public ushort? YearValue { get; set; }
 
-    public int? DayValue { get; set; }
+    public byte? MonthValue { get; set; }
 
-    public int? HourValue { get; set; }
+    public byte? DayValue { get; set; }
 
-    public int? MinuteValue { get; set; }
+    public byte? HourValue { get; set; }
 
-    public int? SecondValue { get; set; }
+    public byte? MinuteValue { get; set; }
+
+    public byte? SecondValue { get; set; }
 }

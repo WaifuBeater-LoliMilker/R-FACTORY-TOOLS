@@ -9,11 +9,19 @@ namespace R_Factory_Tools
 {
     public partial class FormMain : Form
     {
-        private readonly HttpClient _httpClient = new();
+        private readonly HttpClient _httpClient = new(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+        });
         private CancellationTokenSource _pollCts;
         private DateTime? _lastModified;
         private const int PollIntervalMs = 5000;
         private Task? _pollingTask;
+
+        private string _backendSecret;
+        private string _changeAPI;
+        private string _logAPI;
+        private string _endpointsAPI;
 
         private List<Endpoints> _endpoints = [];
         private List<ModbusDetails> _modbusDetails = [];
@@ -26,6 +34,26 @@ namespace R_Factory_Tools
             InitializeComponent();
             _lastModified = null;
             _pollCts = new CancellationTokenSource();
+            var json = File.ReadAllText(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "appsettings.json"));
+            using var doc = JsonDocument.Parse(json);
+            _backendSecret = doc.RootElement
+                .GetProperty("Secret")
+                .GetString()
+                ?? throw new InvalidOperationException("Secret not found");
+            _endpointsAPI = doc.RootElement
+                .GetProperty("EndPointsAPI")
+                .GetString()
+                ?? throw new InvalidOperationException("EndpointsAPI not found");
+            _logAPI = doc.RootElement
+                .GetProperty("LogAPI")
+                .GetString()
+                ?? throw new InvalidOperationException("LogAPI not found");
+            _changeAPI = doc.RootElement
+                .GetProperty("ChangeAPI")
+                .GetString()
+                ?? throw new InvalidOperationException("ChangeAPI not found");
         }
 
         private void FormMain_Load(object sender, EventArgs e)
@@ -56,26 +84,26 @@ namespace R_Factory_Tools
                             lblConnectionStatusValue.Text = "Connected";
                             lblConnectionStatusValue.BackColor = Color.Green;
                         });
-
-                        DateTime? current = await FetchLatestTimestampAsync(ct).ConfigureAwait(false);
-
-                        if (current != _lastModified)
+                        try
                         {
-                            _lastModified = current;
+                            DateTime? current = await FetchLatestTimestampAsync(ct).ConfigureAwait(false);
 
-                            if (!IsDisposed && !ct.IsCancellationRequested)
+                            if (current != _lastModified)
                             {
-                                try
+                                _lastModified = current;
+
+                                if (!IsDisposed && !ct.IsCancellationRequested)
                                 {
+
                                     BeginInvoke((Action)OnTableChanged);
-                                }
-                                catch (Exception ex)
-                                {
-                                    ErrorLogger.Write(ex);
+
                                 }
                             }
                         }
-
+                        catch (Exception ex)
+                        {
+                            ErrorLogger.Write(ex);
+                        }
                         await Task.Delay(PollIntervalMs, ct).ConfigureAwait(false);
                     }
                 }
@@ -97,15 +125,7 @@ namespace R_Factory_Tools
 
         private async Task<DateTime?> FetchLatestTimestampAsync(CancellationToken ct)
         {
-            var json = File.ReadAllText(Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "appsettings.json"));
-            using var doc = JsonDocument.Parse(json);
-            var changeAPI = doc.RootElement
-                .GetProperty("ChangeAPI")
-                .GetString()
-                ?? throw new InvalidOperationException("ChangeAPI not found");
-            HttpResponseMessage response = await _httpClient.GetAsync(changeAPI, ct);
+            HttpResponseMessage response = await _httpClient.GetAsync(_changeAPI, ct);
             response.EnsureSuccessStatusCode();
             string result = await response.Content.ReadAsStringAsync(ct);
             DateTime date = JsonSerializer.Deserialize<DateTime>(result);
@@ -114,15 +134,7 @@ namespace R_Factory_Tools
 
         private async void OnTableChanged()
         {
-            var json = File.ReadAllText(Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "appsettings.json"));
-            using var doc = JsonDocument.Parse(json);
-            var endpointsAPI = doc.RootElement
-                .GetProperty("EndPointsAPI")
-                .GetString()
-                ?? throw new InvalidOperationException("ChangeAPI not found");
-            HttpResponseMessage response = await _httpClient.GetAsync(endpointsAPI);
+            HttpResponseMessage response = await _httpClient.GetAsync(_endpointsAPI);
             response.EnsureSuccessStatusCode();
             string result = await response.Content.ReadAsStringAsync();
             (_endpoints, _modbusDetails, _startAddresses) = JsonSerializer.Deserialize<
@@ -195,77 +207,92 @@ namespace R_Factory_Tools
 
                     if (numPoints == 0)
                         continue;
+                    try
+                    {
 
-                    if (functionName.Contains("readcoils") ||
-                        Regex.IsMatch(functionName, @"1(?!x)|0x", RegexOptions.IgnoreCase))
-                    {
-                        // Read coils (bit table, function 1)
-                        // Hsl: ReadBool(address, length) returns OperateResult<bool[]>
-                        var res = modbus.ReadBool(first.ToString(), numPoints);
-                        if (res.IsSuccess)
+                        if (functionName.Contains("readcoils") ||
+                            Regex.IsMatch(functionName, @"1(?!x)|0x", RegexOptions.IgnoreCase))
                         {
-                            bool[] coils = res.Content;
-                            // TODO: use coils as needed (not saved to DB in your original code)
-                        }
-                        else
-                        {
-                            ErrorLogger.Write(new Exception($"Read coils failed: {res.Message}"));
-                        }
-                    }
-                    else if (functionName.Contains("readinputs") ||
-                        Regex.IsMatch(functionName, @"2(?!x)|1x", RegexOptions.IgnoreCase))
-                    {
-                        // Read discrete inputs (function 2). Hsl uses address prefix "x=2;" for discrete inputs in some examples,
-                        // but since we set Station above you can also try ReadBool with an "x=2;" prefix:
-                        var addrPrefix = $"x=2;{first}";
-                        var res = modbus.ReadBool(addrPrefix, numPoints);
-                        if (res.IsSuccess)
-                        {
-                            bool[] inputs = res.Content;
-                            // TODO: use inputs as needed
-                        }
-                        else
-                        {
-                            ErrorLogger.Write(new Exception($"Read discrete inputs failed: {res.Message}"));
-                        }
-                    }
-                    else if (functionName.Contains("readholdingregisters") ||
-                        Regex.IsMatch(functionName, @"3(?!x)|4x", RegexOptions.IgnoreCase))
-                    {
-                        // Read holding registers (function 3)
-                        // Use Read(address, length) to get raw bytes (each register is 2 bytes)
-                        var res = modbus.ReadUInt16(first.ToString(), numPoints);
-                        if (!res.IsSuccess)
-                        {
-                            ErrorLogger.Write(new Exception($"ReadHoldingRegisters failed: {res.Message}"));
-                        }
-                        else
-                        {
-                            // send to DB (your existing method expects ushort[])
-                            await SendDataToDB(res.Content);
-                        }
-                    }
-                    else if (functionName.Contains("readinputregisters") ||
-                        Regex.IsMatch(functionName, @"4(?!x)|3x", RegexOptions.IgnoreCase))
-                    {
-                        // Read input registers (function 4).
-                        // Hsl examples sometimes use "x=4;100" to indicate input register table
-                        var addrPrefix = $"x=4;{first}";
-                        var res = modbus.Read(addrPrefix, numPoints);
-                        if (res.IsSuccess)
-                        {
-                            byte[] bytes = res.Content;
-                            ushort[] inRegs = new ushort[numPoints];
-                            for (int i = 0; i < numPoints; i++)
+                            var res = modbus.ReadBool(first.ToString(), numPoints);
+                            if (res.IsSuccess)
                             {
-                                int baseIndex = i * 2;
-                                inRegs[i] = (ushort)((bytes[baseIndex] << 8) | bytes[baseIndex + 1]);
+                                bool[] coils = res.Content;
+                            }
+                            else
+                            {
+                                ErrorLogger.Write(new Exception($"Read coils failed: {res.Message}"));
                             }
                         }
-                        else
+                        else if (functionName.Contains("readinputs") ||
+                            Regex.IsMatch(functionName, @"2(?!x)|1x", RegexOptions.IgnoreCase))
                         {
-                            ErrorLogger.Write(new Exception($"ReadInputRegisters failed: {res.Message}"));
+                            var addrPrefix = $"x=2;{first}";
+                            var res = modbus.ReadBool(addrPrefix, numPoints);
+                            if (res.IsSuccess)
+                            {
+                                bool[] inputs = res.Content;
+                            }
+                            else
+                            {
+                                ErrorLogger.Write(new Exception($"Read discrete inputs failed: {res.Message}"));
+                            }
                         }
+                        else if (functionName.Contains("readholdingregisters") ||
+                            Regex.IsMatch(functionName, @"\b3\b|4x", RegexOptions.IgnoreCase))
+                        {
+                            int totalRegs = Math.Max(0, last - first + 1);
+                            if (totalRegs == 0) continue;
+
+                            const int MaxRegistersPerRequest = 120;
+                            var allFloats = new List<float>();
+
+                            for (int offset = 0; offset < totalRegs; offset += MaxRegistersPerRequest)
+                            {
+                                ushort startRegister = (ushort)(first + offset);
+                                ushort toRead = (ushort)Math.Min(MaxRegistersPerRequest, totalRegs - offset);
+
+                                var res = modbus.ReadFloat(startRegister.ToString(), toRead);
+                                if (res.IsSuccess && res.Content != null && res.Content.Length > 0)
+                                {
+                                    allFloats.AddRange(res.Content);
+                                }
+                                else
+                                {
+                                    ErrorLogger.Write(new Exception($"ReadHoldingRegisters failed at {startRegister}: {res.Message}"));
+                                    break;
+                                }
+                            }
+
+                            if (allFloats.Count > 0)
+                            {
+                                await SendDataToDB(allFloats.ToArray());
+                            }
+                        }
+
+                        else if (functionName.Contains("readinputregisters") ||
+                            Regex.IsMatch(functionName, @"4(?!x)|3x", RegexOptions.IgnoreCase))
+                        {
+                            var addrPrefix = $"x=4;{first}";
+                            var res = modbus.Read(addrPrefix, numPoints);
+                            if (res.IsSuccess)
+                            {
+                                byte[] bytes = res.Content;
+                                ushort[] inRegs = new ushort[numPoints];
+                                for (int i = 0; i < numPoints; i++)
+                                {
+                                    int baseIndex = i * 2;
+                                    inRegs[i] = (ushort)((bytes[baseIndex] << 8) | bytes[baseIndex + 1]);
+                                }
+                            }
+                            else
+                            {
+                                ErrorLogger.Write(new Exception($"ReadInputRegisters failed: {res.Message}"));
+                            }
+                        }
+                    }
+                    catch (Exception apiEx)
+                    {
+                        ErrorLogger.Write(apiEx);
                     }
                 }
                 catch (Exception ex)
@@ -280,20 +307,8 @@ namespace R_Factory_Tools
             }
         }
 
-        private async Task SendDataToDB(ushort[] values)
+        private async Task SendDataToDB(float[] values)
         {
-            var json = File.ReadAllText(Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "appsettings.json"));
-            using var doc = JsonDocument.Parse(json);
-            var secret = doc.RootElement
-                .GetProperty("Secret")
-                .GetString()
-                ?? throw new InvalidOperationException("Secret not found");
-            var backendAPI = doc.RootElement
-                .GetProperty("LogAPI")
-                .GetString()
-                ?? throw new InvalidOperationException("LogAPI not found");
             var data = new List<DeviceParameterLogs>();
             var currentTime = DateTime.Now;
             for (int i = 0; i < values.Length; i++)
@@ -303,17 +318,12 @@ namespace R_Factory_Tools
                     Id = 0,
                     DeviceParameterId = _startAddresses[i].DeviceParameterId,
                     LogValue = values[i].ToString(),
-                    YearValue = currentTime.Year,
-                    MonthValue = currentTime.Month,
-                    DayValue = currentTime.Day,
-                    HourValue = currentTime.Hour,
-                    MinuteValue = currentTime.Minute,
-                    SecondValue = currentTime.Second
+                    LogTime = currentTime
                 });
             }
-            string jsonData = JsonSerializer.Serialize(new { data, secret });
+            string jsonData = JsonSerializer.Serialize(new { data, secret = _backendSecret });
             using var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = await _httpClient.PostAsync(backendAPI, content);
+            HttpResponseMessage response = await _httpClient.PostAsync(_logAPI, content);
             response.EnsureSuccessStatusCode();
             string result = await response.Content.ReadAsStringAsync();
         }
