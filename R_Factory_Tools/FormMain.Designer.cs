@@ -34,11 +34,16 @@
             menuNotify = new ContextMenuStrip(components);
             btnExit = new ToolStripMenuItem();
             panel1 = new Panel();
+            label1 = new Label();
+            txtValue = new TextBox();
+            txtAddress = new TextBox();
+            btnRead = new Button();
             btnHide = new Button();
             btnStop = new Button();
             btnStart = new Button();
             lblConnectionStatusValue = new Label();
             lblConnectionStatusText = new Label();
+            txtLength = new TextBox();
             menuNotify.SuspendLayout();
             panel1.SuspendLayout();
             SuspendLayout();
@@ -65,6 +70,11 @@
             // 
             // panel1
             // 
+            panel1.Controls.Add(txtLength);
+            panel1.Controls.Add(label1);
+            panel1.Controls.Add(txtValue);
+            panel1.Controls.Add(txtAddress);
+            panel1.Controls.Add(btnRead);
             panel1.Controls.Add(btnHide);
             panel1.Controls.Add(btnStop);
             panel1.Controls.Add(btnStart);
@@ -73,8 +83,41 @@
             panel1.Dock = DockStyle.Fill;
             panel1.Location = new Point(0, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(661, 122);
+            panel1.Size = new Size(661, 254);
             panel1.TabIndex = 1;
+            // 
+            // label1
+            // 
+            label1.AutoSize = true;
+            label1.Location = new Point(401, 123);
+            label1.Name = "label1";
+            label1.Size = new Size(38, 15);
+            label1.TabIndex = 9;
+            label1.Text = "Giá trị";
+            // 
+            // txtValue
+            // 
+            txtValue.Location = new Point(456, 120);
+            txtValue.Name = "txtValue";
+            txtValue.Size = new Size(121, 23);
+            txtValue.TabIndex = 8;
+            // 
+            // txtAddress
+            // 
+            txtAddress.Location = new Point(22, 119);
+            txtAddress.Name = "txtAddress";
+            txtAddress.Size = new Size(121, 23);
+            txtAddress.TabIndex = 7;
+            // 
+            // btnRead
+            // 
+            btnRead.Location = new Point(277, 115);
+            btnRead.Name = "btnRead";
+            btnRead.Size = new Size(100, 27);
+            btnRead.TabIndex = 6;
+            btnRead.Text = "Đọc";
+            btnRead.UseVisualStyleBackColor = true;
+            btnRead.Click += btnRead_Click;
             // 
             // btnHide
             // 
@@ -129,11 +172,18 @@
             lblConnectionStatusText.TabIndex = 0;
             lblConnectionStatusText.Text = "Trạng thái:";
             // 
+            // txtLength
+            // 
+            txtLength.Location = new Point(149, 118);
+            txtLength.Name = "txtLength";
+            txtLength.Size = new Size(100, 23);
+            txtLength.TabIndex = 10;
+            // 
             // FormMain
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(661, 122);
+            ClientSize = new Size(661, 254);
             Controls.Add(panel1);
             Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "FormMain";
@@ -156,5 +206,10 @@
         private Button btnStart;
         private Button btnStop;
         private Button btnHide;
+        private Button btnRead;
+        private TextBox txtAddress;
+        private TextBox txtValue;
+        private Label label1;
+        private TextBox txtLength;
     }
 }

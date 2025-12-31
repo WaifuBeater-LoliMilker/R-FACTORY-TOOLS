@@ -17,5 +17,20 @@
 
             File.AppendAllText(logFilePath, logMessage);
         }
+        public static void Write(string data)
+        {
+            DateTime now = DateTime.Now;
+
+            string logsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+            string monthDirectory = Path.Combine(logsDirectory, now.ToString("yyyy-MM"));
+
+            Directory.CreateDirectory(monthDirectory);
+
+            string logFilePath = Path.Combine(monthDirectory, now.ToString("dd") + ".txt");
+
+            string logMessage = $"[{now}] {data}\n\n";
+
+            File.AppendAllText(logFilePath, logMessage);
+        }
     }
 }

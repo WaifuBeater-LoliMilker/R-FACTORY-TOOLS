@@ -26,4 +26,6 @@ public partial class DeviceParameterLogs
     public byte? MinuteValue { get; set; }
 
     public byte? SecondValue { get; set; }
+
+    public string Address { get; set; }
 }

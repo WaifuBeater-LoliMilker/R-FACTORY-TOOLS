@@ -255,3 +255,4 @@ paket-files/
 *.bak
 # Custom
 appsettings.json
+appsettings.Development.json

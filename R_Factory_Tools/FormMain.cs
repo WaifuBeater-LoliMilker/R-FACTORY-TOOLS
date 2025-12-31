@@ -143,15 +143,15 @@ namespace R_Factory_Tools
             ushort last = ushort.Parse(_startAddresses.Last().StartAddress);
             _startAddresses = _startAddresses.OrderBy(x => int.Parse(x.StartAddress)).ToList();
 
-            for (int addr = first; addr <= last; addr++)
-            {
-                bool exists = _startAddresses.Any(x => int.Parse(x.StartAddress) == addr);
-                if (!exists)
-                {
-                    _startAddresses.Add(new StartAddresses(0, addr.ToString()));
-                }
-            }
-            _startAddresses = _startAddresses.OrderBy(x => int.Parse(x.StartAddress)).ToList();
+            //for (int addr = first; addr <= last; addr++)
+            //{
+            //    bool exists = _startAddresses.Any(x => int.Parse(x.StartAddress) == addr);
+            //    if (!exists)
+            //    {
+            //        _startAddresses.Add(new StartAddresses(0, addr.ToString()));
+            //    }
+            //}
+            //_startAddresses = _startAddresses.OrderBy(x => int.Parse(x.StartAddress)).ToList();
         }
 
         private void CleanupStaleConnections()
@@ -240,33 +240,53 @@ namespace R_Factory_Tools
                         else if (functionName.Contains("readholdingregisters") ||
                             Regex.IsMatch(functionName, @"\b3\b|4x", RegexOptions.IgnoreCase))
                         {
-                            int totalRegs = Math.Max(0, last - first + 1);
-                            if (totalRegs == 0) continue;
-
-                            const int MaxRegistersPerRequest = 120;
-                            var allFloats = new List<float>();
-
-                            for (int offset = 0; offset < totalRegs; offset += MaxRegistersPerRequest)
+                            var data = new List<DeviceParameterLogs>();
+                            var currentTime = DateTime.Now;
+                            var intAddresses = new HashSet<string>
                             {
-                                ushort startRegister = (ushort)(first + offset);
-                                ushort toRead = (ushort)Math.Min(MaxRegistersPerRequest, totalRegs - offset);
+                                "12493", "12343", "12193", "12043", "11893", "11681"
+                            };
 
-                                var res = modbus.ReadFloat(startRegister.ToString(), toRead);
-                                if (res.IsSuccess && res.Content != null && res.Content.Length > 0)
+                            foreach (var register in _startAddresses)
+                            {
+                                string? value = null;
+                                bool success;
+                                string? error;
+
+                                if (intAddresses.Contains(register.StartAddress))
                                 {
-                                    allFloats.AddRange(res.Content);
+                                    var res = modbus.ReadInt32(register.StartAddress, 1);
+                                    success = res.IsSuccess && res.Content?.Length > 0;
+                                    value = success ? res.Content![0].ToString() : null;
+                                    error = res.Message;
                                 }
                                 else
                                 {
-                                    ErrorLogger.Write(new Exception($"ReadHoldingRegisters failed at {startRegister}: {res.Message}"));
+                                    var res = modbus.ReadFloat(register.StartAddress, 1);
+                                    success = res.IsSuccess && res.Content?.Length > 0;
+                                    value = success ? res.Content![0].ToString() : null;
+                                    error = res.Message;
+                                }
+
+                                if (!success)
+                                {
+                                    ErrorLogger.Write(
+                                        new Exception($"ReadHoldingRegisters failed at {register.StartAddress}: {error}")
+                                    );
                                     break;
                                 }
+
+                                data.Add(new DeviceParameterLogs
+                                {
+                                    Id = 0,
+                                    DeviceParameterId = register.DeviceParameterId,
+                                    LogValue = value!,
+                                    LogTime = currentTime,
+                                    Address = register.StartAddress,
+                                });
                             }
 
-                            if (allFloats.Count > 0)
-                            {
-                                await SendDataToDB(allFloats.ToArray());
-                            }
+                            await SendDataToDB(data);
                         }
 
                         else if (functionName.Contains("readinputregisters") ||
@@ -307,21 +327,13 @@ namespace R_Factory_Tools
             }
         }
 
-        private async Task SendDataToDB(float[] values)
+        private async Task SendDataToDB(List<DeviceParameterLogs> data)
         {
-            var data = new List<DeviceParameterLogs>();
-            var currentTime = DateTime.Now;
-            for (int i = 0; i < values.Length; i++)
+            JsonSerializerOptions jsonOptions = new()
             {
-                data.Add(new DeviceParameterLogs
-                {
-                    Id = 0,
-                    DeviceParameterId = _startAddresses[i].DeviceParameterId,
-                    LogValue = values[i].ToString(),
-                    LogTime = currentTime
-                });
-            }
-            string jsonData = JsonSerializer.Serialize(new { data, secret = _backendSecret });
+                WriteIndented = true
+            };
+            string jsonData = JsonSerializer.Serialize(new { data, secret = _backendSecret }, jsonOptions);
             using var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
             HttpResponseMessage response = await _httpClient.PostAsync(_logAPI, content);
             response.EnsureSuccessStatusCode();
@@ -330,6 +342,11 @@ namespace R_Factory_Tools
 
         private void btnStart_Click(object sender, EventArgs e)
         {
+            var cracked = HslCommunication.Authorization.SetAuthorizationCode("fe49cdb6-b388-4c05-9b66-0e3f1ad3627f");
+            if (!cracked)
+            {
+                ErrorLogger.Write("Liscence activation failed!");
+            }
             _pollCts = new CancellationTokenSource();
             _pollingTask = StartPollingLoopAsync(_pollCts.Token);
         }
@@ -372,6 +389,20 @@ namespace R_Factory_Tools
             else
             {
                 Environment.Exit(1);
+            }
+        }
+
+        private void btnRead_Click(object sender, EventArgs e)
+        {
+            var modbus = _connections.First().Value;
+            var res = modbus.ReadFloat(txtAddress.Text, Convert.ToUInt16(txtLength.Text));
+            if (res.IsSuccess)
+            {
+                txtValue.Text = string.Join(',', res.Content);
+            }
+            else
+            {
+                MessageBox.Show("ăn cớt rồi");
             }
         }
     }
